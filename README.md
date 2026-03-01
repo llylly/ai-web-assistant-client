@@ -1,3 +1,9 @@
+Note: The `aiserver_module` module is outdated. Please see its separate corresponding repo.
+
+Pure generated from vibe coding.
+
+--------------
+
 # AI-Powered Web Reading System
 
 A cross-platform system that monitors your web browsing, converts content to markdown, and uses LLM to provide intelligent analysis and assistance.
