@@ -1,0 +1,17 @@
+# Webpage Sync Service Configuration
+
+# Remote server settings
+server:
+  host: 192.168.1.66
+  port: 9911
+  username: linyi
+  remote_path: /home/linyi/Documents/services/aiserver_module
+
+# Sync settings
+sync:
+  enabled: true
+  auto_sync: true  # Automatically sync files after conversion
+
+# Storage settings
+storage:
+  max_files: 100  # Maximum number of files to keep locally

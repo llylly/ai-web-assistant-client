@@ -1,0 +1,21 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Python (for generate_icons.py helper)
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+
+# Chrome extension build artifacts
+*.zip
+dist/
+build/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo

@@ -1,0 +1,43 @@
+# AI Server Configuration
+
+# LLM settings
+llm:
+  # Provider: openai, anthropic, or local
+  provider: openai
+
+  # Model name
+  # OpenAI: gpt-4-turbo-preview, gpt-4, gpt-3.5-turbo
+  # Anthropic: claude-3-opus-20240229, claude-3-sonnet-20240229
+  # Local: depends on your setup (e.g., llama2, mistral)
+  model: gpt-4-turbo-preview
+
+  # API key (not needed for local models)
+  api_key: your_api_key_here
+
+  # System prompt - customize based on your needs
+  system_prompt: |
+    You are a helpful AI assistant that analyzes web content.
+    Your task is to:
+    1. Summarize the main points of the webpage
+    2. Identify key insights and important information
+    3. Provide analysis or translation if needed
+    4. Present the information in a clear, structured format
+
+  # Optional: temperature (0.0-1.0, higher = more creative)
+  temperature: 0.7
+
+  # Optional: max tokens for response
+  max_tokens: 4000
+
+  # For local models only: base URL of local server
+  # base_url: http://localhost:11434/v1
+
+# Server settings
+server:
+  host: 0.0.0.0  # Listen on all interfaces
+  port: 5000
+
+# File watching settings
+watch:
+  directory: webpages  # Directory to watch for new markdown files
+  auto_process: true   # Automatically process new files

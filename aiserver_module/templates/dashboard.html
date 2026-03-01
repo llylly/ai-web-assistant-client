@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Web Reader Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 48px;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .subtitle {
+            font-size: 18px;
+            opacity: 0.9;
+        }
+
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .control-group label {
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .control-group input,
+        .control-group select,
+        .control-group textarea {
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        .control-group input:focus,
+        .control-group select:focus,
+        .control-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .control-group textarea {
+            resize: vertical;
+            min-height: 80px;
+            font-family: inherit;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #48bb78;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #38a169;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(72, 187, 120, 0.3);
+        }
+
+        .status-bar {
+            background: white;
+            padding: 15px 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-badge {
+            background: #48bb78;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .files-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+
+        .file-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .file-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 12px rgba(0,0,0,0.15);
+        }
+
+        .file-card h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 18px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .file-meta {
+            color: #666;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+
+        .file-meta a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        .file-meta a:hover {
+            text-decoration: underline;
+        }
+
+        .file-tags {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+
+        .tag {
+            background: #f0f0f0;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+            color: #555;
+        }
+
+        .tag.llm {
+            background: #e0e7ff;
+            color: #667eea;
+        }
+
+        .empty-state {
+            background: white;
+            border-radius: 12px;
+            padding: 60px 20px;
+            text-align: center;
+            color: #666;
+        }
+
+        .empty-state h2 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .message {
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            display: block;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 32px;
+            }
+
+            .controls-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .files-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 AI Web Reader</h1>
+            <p class="subtitle">Intelligent webpage analysis powered by LLM</p>
+        </header>
+
+        <div id="message" class="message"></div>
+
+        <div class="controls">
+            <div class="controls-grid">
+                <div class="control-group">
+                    <label for="llmProvider">LLM Provider</label>
+                    <select id="llmProvider">
+                        <option value="openai">OpenAI</option>
+                        <option value="anthropic">Anthropic</option>
+                        <option value="local">Local Model</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label for="llmModel">Model</label>
+                    <input type="text" id="llmModel" placeholder="gpt-4-turbo-preview">
+                </div>
+
+                <div class="control-group">
+                    <label for="apiKey">API Key</label>
+                    <input type="password" id="apiKey" placeholder="sk-...">
+                </div>
+
+                <div class="control-group" style="grid-column: 1 / -1;">
+                    <label for="systemPrompt">System Prompt</label>
+                    <textarea id="systemPrompt" placeholder="You are a helpful assistant that summarizes and analyzes web content."></textarea>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button class="btn-primary" onclick="saveConfig()">💾 Save Configuration</button>
+                <button class="btn-secondary" onclick="refreshFiles()">🔄 Refresh</button>
+            </div>
+        </div>
+
+        <div class="status-bar">
+            <div class="status-item">
+                <span>Status:</span>
+                <span class="status-badge" id="statusBadge">Active</span>
+            </div>
+            <div class="status-item">
+                <span id="fileCount">0 files processed</span>
+            </div>
+        </div>
+
+        <div class="files-grid" id="filesGrid">
+            {% if files %}
+                {% for file in files %}
+                <div class="file-card" onclick="window.open('/view/{{ file.output_file }}', '_blank')">
+                    <h3>{{ file.title }}</h3>
+                    <div class="file-meta">
+                        <a href="{{ file.url }}" target="_blank" onclick="event.stopPropagation()">{{ file.url[:50] }}...</a>
+                    </div>
+                    <div class="file-meta">
+                        <strong>Captured:</strong> {{ file.captured_at }}<br>
+                        <strong>Processed:</strong> {{ file.processed_at }}
+                    </div>
+                    <div class="file-tags">
+                        <span class="tag llm">{{ file.llm_provider }} - {{ file.llm_model }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state" style="grid-column: 1 / -1;">
+                    <h2>No files processed yet</h2>
+                    <p>Waiting for webpages to be synced from your browser...</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        // Load configuration on page load
+        window.addEventListener('DOMContentLoaded', async () => {
+            await loadConfig();
+            await checkStatus();
+        });
+
+        async function loadConfig() {
+            try {
+                const response = await fetch('/config');
+                const config = await response.json();
+
+                document.getElementById('llmProvider').value = config.llm.provider;
+                document.getElementById('llmModel').value = config.llm.model;
+                document.getElementById('apiKey').value = config.llm.api_key || '';
+                document.getElementById('systemPrompt').value = config.llm.system_prompt;
+            } catch (error) {
+                console.error('Error loading config:', error);
+            }
+        }
+
+        async function saveConfig() {
+            try {
+                const config = {
+                    llm: {
+                        provider: document.getElementById('llmProvider').value,
+                        model: document.getElementById('llmModel').value,
+                        api_key: document.getElementById('apiKey').value,
+                        system_prompt: document.getElementById('systemPrompt').value
+                    },
+                    server: {
+                        host: '0.0.0.0',
+                        port: 5000
+                    },
+                    watch: {
+                        auto_process: true
+                    }
+                };
+
+                const response = await fetch('/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+
+                if (response.ok) {
+                    showMessage('Configuration saved successfully!', 'success');
+                } else {
+                    showMessage('Error saving configuration', 'error');
+                }
+            } catch (error) {
+                showMessage('Error saving configuration: ' + error.message, 'error');
+            }
+        }
+
+        async function checkStatus() {
+            try {
+                const response = await fetch('/status');
+                const status = await response.json();
+
+                document.getElementById('fileCount').textContent =
+                    `${status.processed_files} files processed`;
+            } catch (error) {
+                console.error('Error checking status:', error);
+            }
+        }
+
+        function refreshFiles() {
+            window.location.reload();
+        }
+
+        function showMessage(text, type) {
+            const messageEl = document.getElementById('message');
+            messageEl.textContent = text;
+            messageEl.className = `message ${type}`;
+
+            setTimeout(() => {
+                messageEl.className = 'message';
+            }, 3000);
+        }
+
+        // Auto-refresh every 30 seconds
+        setInterval(refreshFiles, 30000);
+    </script>
+</body>
+</html>
