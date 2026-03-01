@@ -7,9 +7,10 @@ import os
 import json
 import logging
 import time
+import base64
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -34,10 +35,12 @@ CONFIG_FILE = 'config.yaml'
 DATA_DIR = Path('data')
 MARKDOWN_DIR = DATA_DIR / 'markdown'
 METADATA_DIR = DATA_DIR / 'metadata'
+SCREENSHOT_DIR = DATA_DIR / 'screenshots'
 
 # Create directories
 MARKDOWN_DIR.mkdir(parents=True, exist_ok=True)
 METADATA_DIR.mkdir(parents=True, exist_ok=True)
+SCREENSHOT_DIR.mkdir(parents=True, exist_ok=True)
 
 # HTML to markdown converter
 html_converter = html2text.HTML2Text()
@@ -114,10 +117,33 @@ def sanitize_filename(text: str, max_length: int = 100) -> str:
     return filename or 'untitled'
 
 
+def save_screenshot(data_url: str, path: Path) -> bool:
+    """
+    Decode a PNG data URL and write it to disk.
+
+    Args:
+        data_url: String of the form "data:image/png;base64,<b64>"
+        path:     Destination file path (should have .png extension)
+
+    Returns:
+        True on success, False on failure
+    """
+    try:
+        # Strip the "data:image/...;base64," prefix
+        header, encoded = data_url.split(',', 1)
+        image_bytes = base64.b64decode(encoded)
+        path.write_bytes(image_bytes)
+        return True
+    except Exception as e:
+        logger.error(f"Error decoding/saving screenshot: {e}")
+        return False
+
+
 def cleanup_old_files(max_files: int):
     """Remove old files if exceeding max_files limit"""
     markdown_files = sorted(MARKDOWN_DIR.glob('*.md'), key=lambda p: p.stat().st_mtime)
     metadata_files = sorted(METADATA_DIR.glob('*.json'), key=lambda p: p.stat().st_mtime)
+    screenshot_files = sorted(SCREENSHOT_DIR.glob('*.png'), key=lambda p: p.stat().st_mtime)
 
     # Remove oldest files
     while len(markdown_files) > max_files:
@@ -129,11 +155,16 @@ def cleanup_old_files(max_files: int):
         oldest = metadata_files.pop(0)
         oldest.unlink()
 
+    while len(screenshot_files) > max_files:
+        oldest = screenshot_files.pop(0)
+        oldest.unlink()
+
 
 @app.route('/sync', methods=['POST'])
 def sync_webpage():
     """
-    Receive webpage content from Chrome extension
+    Receive webpage content from Chrome extension and sync to remote server.
+
     Expected JSON format:
     {
         "id": "unique_id",
@@ -141,8 +172,17 @@ def sync_webpage():
         "title": "Page Title",
         "html": "<html>...</html>",
         "text": "Page text...",
+        "screenshot": "data:image/png;base64,...",  // optional, null when disabled
         "timestamp": 1234567890000
     }
+
+    Saved files (using the same base filename):
+        data/markdown/<filename>.md
+        data/screenshots/<filename>.png   (only when screenshot is provided)
+        data/metadata/<filename>.json
+
+    Both .md and .png (when present) are uploaded to the remote server via SFTP
+    into the same remote_path directory. The AI server identifies pairs by stem.
     """
     try:
         data = request.get_json()
@@ -160,7 +200,7 @@ def sync_webpage():
         logger.info(f"Processing: {data['title']} - {data['url']}")
         markdown = html_to_markdown(data['html'])
 
-        # Create filename based on timestamp and title
+        # Create filename based on timestamp and title (shared by .md and .png)
         timestamp_str = datetime.fromtimestamp(data['timestamp'] / 1000).strftime('%Y%m%d_%H%M%S')
         safe_title = sanitize_filename(data['title'])
         filename = f"{timestamp_str}_{safe_title}"
@@ -175,6 +215,16 @@ def sync_webpage():
             f.write("---\n\n")
             f.write(markdown)
 
+        # Save screenshot if provided by the Chrome extension
+        screenshot_path: Optional[Path] = None
+        screenshot_data_url = data.get('screenshot')
+        if screenshot_data_url:
+            screenshot_path = SCREENSHOT_DIR / f"{filename}.png"
+            if save_screenshot(screenshot_data_url, screenshot_path):
+                logger.info(f"Saved screenshot: {screenshot_path.name}")
+            else:
+                screenshot_path = None  # Don't attempt to sync a failed save
+
         # Save metadata
         metadata_path = METADATA_DIR / f"{filename}.json"
         metadata = {
@@ -183,6 +233,7 @@ def sync_webpage():
             'title': data['title'],
             'timestamp': data['timestamp'],
             'markdown_file': str(markdown_path.name),
+            'screenshot_file': str(screenshot_path.name) if screenshot_path else None,
             'processed_at': time.time()
         }
         with open(metadata_path, 'w', encoding='utf-8') as f:
@@ -195,18 +246,26 @@ def sync_webpage():
         max_files = config.get('storage', {}).get('max_files', 100)
         cleanup_old_files(max_files)
 
-        # Sync to remote server if enabled
+        # Sync to remote server if enabled: upload .md first, then .png if captured
         if ssh_sync and config.get('sync', {}).get('auto_sync', True):
             try:
                 ssh_sync.sync_file(markdown_path)
-                logger.info(f"Synced to remote server: {markdown_path.name}")
+                logger.info(f"Synced markdown to remote server: {markdown_path.name}")
             except Exception as e:
-                logger.error(f"Error syncing to remote server: {e}")
+                logger.error(f"Error syncing markdown to remote server: {e}")
+
+            if screenshot_path:
+                try:
+                    ssh_sync.sync_file(screenshot_path)
+                    logger.info(f"Synced screenshot to remote server: {screenshot_path.name}")
+                except Exception as e:
+                    logger.error(f"Error syncing screenshot to remote server: {e}")
 
         return jsonify({
             'success': True,
             'filename': filename,
-            'markdown_file': str(markdown_path.name)
+            'markdown_file': str(markdown_path.name),
+            'screenshot_file': str(screenshot_path.name) if screenshot_path else None
         })
 
     except Exception as e:

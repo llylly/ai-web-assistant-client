@@ -52,6 +52,7 @@ async function loadConfig() {
 
     if (config) {
       document.getElementById('enabledToggle').checked = config.enabled;
+      document.getElementById('screenshotToggle').checked = config.captureScreenshot || false;
       document.getElementById('monitorInterval').value = config.monitorInterval;
       document.getElementById('maxHistory').value = config.maxHistory;
       document.getElementById('syncServerUrl').value = config.syncServerUrl;
@@ -69,6 +70,7 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
   try {
     const config = {
       enabled: document.getElementById('enabledToggle').checked,
+      captureScreenshot: document.getElementById('screenshotToggle').checked,
       monitorInterval: parseInt(document.getElementById('monitorInterval').value),
       maxHistory: parseInt(document.getElementById('maxHistory').value),
       syncServerUrl: document.getElementById('syncServerUrl').value

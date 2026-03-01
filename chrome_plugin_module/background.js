@@ -8,7 +8,8 @@ const DEFAULT_CONFIG = {
   monitorInterval: 30, // seconds
   maxHistory: 100,
   syncServerUrl: 'http://localhost:8000/sync',
-  enabled: true
+  enabled: true,
+  captureScreenshot: false  // Capture visible tab screenshot and send as JPEG base64
 };
 
 // Initialize configuration on install
@@ -80,12 +81,24 @@ async function monitorCurrentTab() {
       return;
     }
 
+    // Capture screenshot of the visible tab if enabled
+    // Returns a JPEG data URL: "data:image/jpeg;base64,..."
+    let screenshot = null;
+    if (config.captureScreenshot) {
+      try {
+        screenshot = await chrome.tabs.captureVisibleTab(null, { format: 'png' });
+      } catch (err) {
+        console.warn('Could not capture screenshot:', err);
+      }
+    }
+
     // Create entry
     const entry = {
       url: tab.url,
       title: tab.title || 'Untitled',
       html: result.html,
       text: result.text,
+      screenshot: screenshot,  // null when disabled, data URL string when enabled
       timestamp: now,
       id: `${now}_${Math.random().toString(36).substr(2, 9)}`
     };
@@ -108,14 +121,27 @@ async function monitorCurrentTab() {
 }
 
 /**
- * Save entry to history with max limit
+ * Save a lightweight metadata-only record to history.
+ *
+ * The full payload (html, text, screenshot) is intentionally excluded:
+ * those fields can be several MB each and would quickly exhaust the
+ * chrome.storage.local 10 MB quota.  History is only used for the popup
+ * stats display, so only the small identifying fields are needed.
  */
 async function saveToHistory(entry, maxHistory) {
   const { history } = await chrome.storage.local.get('history');
   let historyList = history || [];
 
-  // Add new entry
-  historyList.unshift(entry);
+  // Store only the lightweight fields
+  const record = {
+    id:        entry.id,
+    url:       entry.url,
+    title:     entry.title,
+    timestamp: entry.timestamp,
+    hasScreenshot: entry.screenshot !== null  // record whether a screenshot was sent
+  };
+
+  historyList.unshift(record);
 
   // Limit history size
   if (historyList.length > maxHistory) {
@@ -140,6 +166,7 @@ async function syncToServer(entry, serverUrl) {
         title: entry.title,
         html: entry.html,
         text: entry.text,
+        screenshot: entry.screenshot,  // PNG data URL, or null if disabled
         timestamp: entry.timestamp,
         id: entry.id
       })
